@@ -1,0 +1,72 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+        
+    - name: Deploy to VPS
+      run: |
+        # Copy files to VPS
+        rsync -avz --delete \
+          --exclude='.git' \
+          --exclude='__pycache__' \
+          --exclude='*.pyc' \
+          --exclude='teacher_bot_env' \
+          --exclude='.github' \
+          ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/telegram-teacher-bot/
+        
+        # Deploy on VPS
+        ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+          cd /opt/telegram-teacher-bot
+          
+          # Create .env file with secrets
+          cat > .env << EOL
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+          BOT_NAME=Teacher Bot
+          BOT_USERNAME=karlmabsTeacherBot
+          EOL
+          
+          # Rebuild and restart the application
+          docker compose down
+          docker compose up -d --build
+          
+          # Show status
+          echo "Deployment completed!"
+          docker compose ps
+        EOF
+        
+    - name: Verify deployment
+      run: |
+        ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+          cd /opt/telegram-teacher-bot
+          
+          # Wait for container to be ready
+          sleep 10
+          
+          # Check if container is running
+          if docker compose ps | grep -q "Up"; then
+            echo "✅ Bot is running successfully!"
+            docker compose logs --tail=5
+          else
+            echo "❌ Deployment failed!"
+            docker compose logs --tail=20
+            exit 1
+          fi
+        EOF
