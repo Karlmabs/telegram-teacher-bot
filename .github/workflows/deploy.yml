@@ -37,11 +37,11 @@ jobs:
           
           # Create .env file with secrets
           cat > .env << EOL
-          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
-          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
-          BOT_NAME=Teacher Bot
-          BOT_USERNAME=karlmabsTeacherBot
-          EOL
+TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+BOT_NAME="Teacher Bot"
+BOT_USERNAME=karlmabsTeacherBot
+EOL
           
           # Rebuild and restart the application
           docker compose down
